@@ -1,5 +1,5 @@
 import css from './App.module.css';
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Searchbar } from './Searchbar/Searchbar';
@@ -9,96 +9,77 @@ import { FetchApi } from './FetchApi';
 import { Loader } from './Loader/Loader';
 import { Modal } from './Modal/Modal';
 
-export class App extends Component {
-  state = {
-    searchQuery: '',
-    page: 1,
-    totalHits: 0,
-    imageCards: [],
-    loading: false,
-    showModal: false,
-    selectedImgCard: undefined,
-  };
+export function App() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalHits, setTotalhits] = useState(0);
+  const [imageCards, setImageCards] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedImgCard, setSelectedImgCard] = useState(undefined);
 
-  componentDidUpdate(_, prevState) {
-    if (
-      this.state.searchQuery !== prevState.searchQuery ||
-      this.state.page !== prevState.page
-    ) {
-      const { searchQuery, page } = this.state;
-
-      this.setState({ loading: true, totalHits: 0 });
-
-      const fetchResponse = FetchApi(searchQuery, page);
-      fetchResponse
-        .then(resp => {
-          if (resp.data.hits.length === 0) {
-            this.setState({ loading: false });
-            toast('Oops! Find better)');
-            return;
-          }
-
-          this.setState(() => ({
-            imageCards: [...this.state.imageCards, ...resp.data.hits],
-            totalHits: resp.data.totalHits,
-          }));
-        })
-        .catch(error => {
-          console.log(error);
-          toast('Something went wrong...');
-          this.setState({ loading: false });
-        })
-        .finally(() => this.setState({ loading: false }));
-    }
-  }
-
-  onSubmit = inputValue => {
-    if (this.state.searchQuery !== inputValue) {
-      this.setState({ searchQuery: inputValue, imageCards: [] });
+  const onSubmit = inputValue => {
+    if (searchQuery !== inputValue) {
+      setSearchQuery(inputValue);
+      setImageCards([]);
     }
   };
-
-  onLoadBtnClick = () => {
-    this.setState(({ page }) => ({
-      page: page + 1,
-    }));
+  const onLoadBtnClick = () => {
+    setPage(page => page + 1);
   };
 
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({ showModal: !showModal }));
+  const toggleModal = () => {
+    setShowModal(showModal => !showModal);
   };
 
-  onImgClick = imgId => {
-    const imageCard = this.state.imageCards.find(
-      imageCard => imageCard.id === imgId
-    );
-
-    this.setState({ selectedImgCard: imageCard, showModal: true });
+  const onImgClick = imgId => {
+    const imageCard = imageCards.find(imageCard => imageCard.id === imgId);
+    setSelectedImgCard(imageCard);
+    setShowModal(true);
   };
 
-  render() {
-    const { imageCards, loading, totalHits, showModal, selectedImgCard } =
-      this.state;
-    const { onSubmit, onLoadBtnClick, toggleModal, onImgClick } = this;
+  useEffect(() => {
+    if (!searchQuery) {
+      return;
+    }
+    setLoading(true);
+    setTotalhits(0);
 
-    return (
-      <div className={css.App}>
-        <Searchbar onSubmit={onSubmit} />
+    FetchApi(searchQuery, page)
+      .then(resp => {
+        if (resp.data.hits.length === 0) {
+          setLoading(false);
+          toast('Oops! Find better)');
+          return;
+        }
+        setImageCards(prevImageCards => [...prevImageCards, ...resp.data.hits]);
+        setTotalhits(resp.data.totalHits);
+      })
+      .catch(error => {
+        console.log(error);
+        toast('Something went wrong...');
+        setLoading(false);
+      })
+      .finally(() => setLoading(false));
+  }, [page, searchQuery]);
 
-        {imageCards.length > 0 && (
-          <ImageGallery imageCardsArray={imageCards} onImgClick={onImgClick} />
-        )}
+  return (
+    <div className={css.App}>
+      <Searchbar onSubmit={onSubmit} />
 
-        {showModal && (
-          <Modal onClose={toggleModal} selectedImgCard={selectedImgCard} />
-        )}
+      {imageCards.length > 0 && (
+        <ImageGallery imageCardsArray={imageCards} onImgClick={onImgClick} />
+      )}
 
-        {loading && <Loader />}
+      {showModal && (
+        <Modal onClose={toggleModal} selectedImgCard={selectedImgCard} />
+      )}
 
-        {totalHits > 12 && <Button onClick={onLoadBtnClick} />}
+      {loading && <Loader />}
 
-        <ToastContainer position="top-center" autoClose={3000} theme="light" />
-      </div>
-    );
-  }
+      {totalHits > 12 && <Button onClick={onLoadBtnClick} />}
+
+      <ToastContainer position="top-center" autoClose={3000} theme="light" />
+    </div>
+  );
 }
